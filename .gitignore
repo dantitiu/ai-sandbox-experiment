@@ -1,0 +1,7 @@
+# Mac OSX
+.DS_Store
+# Android Studio / IntelliJ
+.idea/*
+
+/git-bridge.git
+/workspace
