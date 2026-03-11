@@ -32,20 +32,24 @@ if ! podman machine info >/dev/null 2>&1; then
   podman machine start
 fi
 
-podman run --pull=never --rm -it \
-  --name "${CONTAINER_NAME}" \
-  --memory=8g \
-  --cpus=4 \
-  --pids-limit=256 \
-  --network=bridge \
-  --cap-drop=ALL \
-  --security-opt=no-new-privileges \
-  --userns=keep-id \
-  -e "SANDBOX_REMOTE_NAME=origin" \
-  -e "SANDBOX_REMOTE_URL=/git-bridge.git" \
-  -e "GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-}" \
-  -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-}" \
-  -v "${WORKSPACE}:/workspace:rw" \
-  -v "${GIT_BRIDGE}:/git-bridge.git:rw" \
-  -w /workspace \
-  "${IMAGE_NAME}"
+if podman ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+  podman start -ai "${CONTAINER_NAME}"
+else
+  podman run --pull=never -it \
+    --name "${CONTAINER_NAME}" \
+    --memory=8g \
+    --cpus=4 \
+    --pids-limit=256 \
+    --network=bridge \
+    --cap-drop=ALL \
+    --security-opt=no-new-privileges \
+    --userns=keep-id \
+    -e "SANDBOX_REMOTE_NAME=origin" \
+    -e "SANDBOX_REMOTE_URL=/git-bridge.git" \
+    -e "GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-}" \
+    -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-}" \
+    -v "${WORKSPACE}:/workspace:rw" \
+    -v "${GIT_BRIDGE}:/git-bridge.git:rw" \
+    -w /workspace \
+    "${IMAGE_NAME}"
+fi
