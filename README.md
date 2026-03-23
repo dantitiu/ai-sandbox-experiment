@@ -11,7 +11,7 @@ Experiment with setting up and running a sandbox environment to run AI agents.
 
 ### Sharing code with the Sandbox:
 1. From your host working repository add the git remote for the sandbox bridge:
-   - run in Terminal: `git remote add sandbox ${SANDBOX_FOLDER}/git-bridge.git`
+   - run in Terminal: `git remote add sandbox ${SANDBOX_FOLDER}/kit-bridge.git`
 2. Push the branch you want the agent to run on:
    - run in Terminal, e.g. `git push sandbox develop` # change develop to your desired branch name
 3. From the VM / Container terminal, in the workspace folder of your choice, fetch and checkout the working branch: 

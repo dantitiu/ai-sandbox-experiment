@@ -12,19 +12,19 @@ SANDBOX="${SANDBOX:-${HOME}/Projects/AI/sandbox}"
 WORKSPACE="${WORKSPACE:-${SANDBOX}/workspace}"
 
 # Optional: a host-shared bare repo that acts as a "bridge remote" between macOS and the sandbox.
-# On macOS you can add it as a remote too:  git remote add sandbox "${GIT_BRIDGE}"
-GIT_BRIDGE="${GIT_BRIDGE:-${SANDBOX}/git-bridge.git}"
+# On macOS you can add it as a remote too:  git remote add sandbox "${KIT_BRIDGE}"
+KIT_BRIDGE="${KIT_BRIDGE:-${SANDBOX}/kit-bridge.git}"
 
 # NOTE: On macOS, Podman (via the VM shared filesystem) may not allow Podman to chown()
 # bind-mounted paths. Therefore we DO NOT use the ":U" mount option here.
-# Also ensure WORKSPACE/GIT_BRIDGE live under $HOME (typically /Users/<you>/...) so the
+# Also ensure WORKSPACE/KIT_BRIDGE live under $HOME (typically /Users/<you>/...) so the
 # Podman machine can share them. Using paths like /Projects/... may fail.
 
 mkdir -p "${WORKSPACE}"
-mkdir -p "${GIT_BRIDGE}"
+mkdir -p "${KIT_BRIDGE}"
 # Initialize the bare repo once (safe if it already exists).
-if [[ ! -d "${GIT_BRIDGE}/objects" ]]; then
-  git init --bare "${GIT_BRIDGE}" >/dev/null
+if [[ ! -d "${KIT_BRIDGE}/objects" ]]; then
+  git init --bare "${KIT_BRIDGE}" >/dev/null
 fi
 
 if ! podman machine info >/dev/null 2>&1; then
@@ -45,11 +45,11 @@ else
     --security-opt=no-new-privileges \
     --userns=keep-id \
     -e "SANDBOX_REMOTE_NAME=origin" \
-    -e "SANDBOX_REMOTE_URL=/git-bridge.git" \
+    -e "KIT_REMOTE_URL=/kit-bridge.git" \
     -e "GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-}" \
     -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-}" \
     -v "${WORKSPACE}:/workspace:rw" \
-    -v "${GIT_BRIDGE}:/git-bridge.git:rw" \
+    -v "${KIT_BRIDGE}:/kit-bridge.git:rw" \
     -w /workspace \
     "${IMAGE_NAME}"
 fi

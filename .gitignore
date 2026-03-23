@@ -3,5 +3,6 @@
 # Android Studio / IntelliJ
 .idea/*
 
-/git-bridge.git
+/*.git
+/gradle-cache
 /workspace
