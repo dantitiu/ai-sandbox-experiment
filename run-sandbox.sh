@@ -15,6 +15,20 @@ WORKSPACE="${WORKSPACE:-${SANDBOX}/workspace}"
 # On macOS you can add it as a remote too:  git remote add sandbox "${KIT_BRIDGE}"
 KIT_BRIDGE="${KIT_BRIDGE:-${SANDBOX}/kit-bridge.git}"
 
+# Private sandbox Gradle home — holds daemon sockets, lock files, configuration-cache,
+# toolchain metadata, and anything else that is OS/ABI-specific. Keeping this
+# container-local prevents the I/O errors that occur when a Linux container touches
+# macOS-native Gradle state (file-locking, daemon registry paths, etc.).
+GRADLE_CACHE="${GRADLE_CACHE:-${SANDBOX}/gradle-cache}"
+
+# The three subfolders below are pure data caches with no OS-specific state.
+# Mounting them from the host ~/.gradle means the container immediately benefits
+# from dependencies and wrappers already downloaded on macOS, and vice-versa.
+#   caches   — downloaded artifacts, modules, and build metadata (the big one)
+#   wrapper  — Gradle distribution ZIPs and their unpacked installations
+#   native   — Gradle's own extracted native platform libraries (small, but avoids re-extraction)
+HOST_GRADLE="${HOST_GRADLE:-${HOME}/.gradle}"
+
 # NOTE: On macOS, Podman (via the VM shared filesystem) may not allow Podman to chown()
 # bind-mounted paths. Therefore we DO NOT use the ":U" mount option here.
 # Also ensure WORKSPACE/KIT_BRIDGE live under $HOME (typically /Users/<you>/...) so the
@@ -22,6 +36,16 @@ KIT_BRIDGE="${KIT_BRIDGE:-${SANDBOX}/kit-bridge.git}"
 
 mkdir -p "${WORKSPACE}"
 mkdir -p "${KIT_BRIDGE}"
+mkdir -p "${GRADLE_CACHE}"
+# Pre-create every directory that will be bind-mounted — both the private parent
+# and the three shared subfolders. Podman overlays mounts onto *existing* paths;
+# if a subdirectory does not exist yet, Podman tries to mkdir it inside the
+# already-mounted (root-owned) parent, which fails with "Permission denied".
+mkdir -p "${GRADLE_CACHE}/wrapper"
+mkdir -p "${GRADLE_CACHE}/native"
+mkdir -p "${HOST_GRADLE}/wrapper"
+mkdir -p "${HOST_GRADLE}/native"
+
 # Initialize the bare repo once (safe if it already exists).
 if [[ ! -d "${KIT_BRIDGE}/objects" ]]; then
   git init --bare "${KIT_BRIDGE}" >/dev/null
@@ -75,6 +99,9 @@ else
     -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-}" \
     -v "${WORKSPACE}:/workspace:rw" \
     -v "${KIT_BRIDGE}:/kit-bridge.git:rw" \
+    -v "${GRADLE_CACHE}:/opt/gradle-cache:rw" \
+    -v "${HOST_GRADLE}/wrapper:/opt/gradle-cache/wrapper:rw" \
+    -v "${HOST_GRADLE}/native:/opt/gradle-cache/native:rw" \
     -w /workspace \
     "${IMAGE_NAME}"
 fi
