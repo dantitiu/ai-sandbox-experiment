@@ -27,9 +27,34 @@ if [[ ! -d "${KIT_BRIDGE}/objects" ]]; then
   git init --bare "${KIT_BRIDGE}" >/dev/null
 fi
 
+# RAM to allocate to the Podman VM. The container's --memory flag is a ceiling
+# *within* the VM — if the VM itself is smaller, that ceiling is what you actually get.
+PODMAN_VM_MEMORY_MB="${PODMAN_VM_MEMORY_MB:-9216}"
+PODMAN_VM_CPUS="${PODMAN_VM_CPUS:-5}"
+PODMAN_VM_NAME="${PODMAN_VM_NAME:-podman-machine-default}"
+
+# ---- Ensure the Podman VM exists and is sized correctly ----
 if ! podman machine info >/dev/null 2>&1; then
-  echo "Starting Podman machine..."
-  podman machine start
+  echo "Creating Podman machine with ${PODMAN_VM_MEMORY_MB} MiB RAM, ${PODMAN_VM_CPUS} CPUs..."
+  podman machine init \
+    --memory "${PODMAN_VM_MEMORY_MB}" \
+    --cpus   "${PODMAN_VM_CPUS}"      \
+    "${PODMAN_VM_NAME}"
+  podman machine start "${PODMAN_VM_NAME}"
+else
+  # VM already exists — check if it needs to be resized.
+  CURRENT_MEM="$(podman machine inspect "${PODMAN_VM_NAME}" --format '{{.Resources.Memory}}' 2>/dev/null || echo 0)"
+  if [[ "${CURRENT_MEM}" -lt "${PODMAN_VM_MEMORY_MB}" ]]; then
+    echo "Resizing Podman VM to ${PODMAN_VM_MEMORY_MB} MiB (currently $((CURRENT_MEM)) MiB)..."
+    podman machine stop  "${PODMAN_VM_NAME}" 2>/dev/null || true
+    podman machine set   "${PODMAN_VM_NAME}" \
+      --memory "${PODMAN_VM_MEMORY_MB}"      \
+      --cpus   "${PODMAN_VM_CPUS}"
+    podman machine start "${PODMAN_VM_NAME}"
+  elif ! podman machine list --format '{{.Running}}' | grep -q true; then
+    echo "Starting Podman VM..."
+    podman machine start "${PODMAN_VM_NAME}"
+  fi
 fi
 
 if podman ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -37,9 +62,9 @@ if podman ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 else
   podman run --pull=never -it \
     --name "${CONTAINER_NAME}" \
-    --memory=8g \
-    --cpus=4 \
-    --pids-limit=256 \
+    --memory="${PODMAN_VM_MEMORY_MB}m" \
+    --cpus="${PODMAN_VM_CPUS}" \
+    --pids-limit=512 \
     --network=bridge \
     --cap-drop=ALL \
     --security-opt=no-new-privileges \
