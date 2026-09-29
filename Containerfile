@@ -132,6 +132,7 @@ RUN echo 'export ANDROID_NDK_HOME=/opt/android-sdk/ndk/28.0.13004108' >> /home/$
 RUN echo 'export GRADLE_USER_HOME=/opt/gradle-cache' >> /home/${USERNAME}/.zshrc
 RUN echo 'export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"' >> /home/${USERNAME}/.zshrc
 RUN echo "alias clauded='claude --dangerously-skip-permissions'" >> /home/${USERNAME}/.zshrc
+RUN echo "alias gitfet='git fetch --all --prune'" >> /home/${USERNAME}/.zshrc
 # Add autocompletion to git
 RUN echo "zstyle ':completion:*:*:git:*' script /usr/local/bin/git-completion.bash" >> /home/${USERNAME}/.zshrc
 RUN echo 'autoload -Uz compinit && compinit' >> /home/${USERNAME}/.zshrc
