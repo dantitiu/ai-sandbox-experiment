@@ -65,7 +65,31 @@ else
   fi
 fi
 
-if podman ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+# A container is pinned to the image ID it was created from, so rebuilding (or retagging)
+# "${IMAGE_NAME}" does not affect an existing container. Detect that and offer to recreate it.
+# Pass --recreate to skip the prompt. NOTE: state stored only inside the container
+# (e.g. the Claude Code login in ~/.claude) is lost when it is recreated.
+RECREATE=false
+[[ "${1:-}" == "--recreate" ]] && RECREATE=true
+
+if podman container exists "${CONTAINER_NAME}"; then
+  CONTAINER_IMAGE_ID="$(podman container inspect --format '{{.Image}}' "${CONTAINER_NAME}")"
+  LATEST_IMAGE_ID="$(podman image inspect --format '{{.Id}}' "${IMAGE_NAME}" 2>/dev/null || true)"
+
+  if [[ -n "${LATEST_IMAGE_ID}" && "${CONTAINER_IMAGE_ID}" != "${LATEST_IMAGE_ID}" && "${RECREATE}" == false ]]; then
+    echo "Container '${CONTAINER_NAME}' uses image ${CONTAINER_IMAGE_ID:0:12}, but '${IMAGE_NAME}' is now ${LATEST_IMAGE_ID:0:12}."
+    print -n "Recreate the container from the new image? Container-only state will be lost. [y/N] "
+    read -r REPLY || REPLY=""
+    [[ "${REPLY}" == [yY]* ]] && RECREATE=true
+  fi
+
+  if [[ "${RECREATE}" == true ]]; then
+    echo "Removing container '${CONTAINER_NAME}'..."
+    podman rm -f "${CONTAINER_NAME}" >/dev/null
+  fi
+fi
+
+if podman container exists "${CONTAINER_NAME}"; then
   podman start -ai "${CONTAINER_NAME}"
 else
   podman run --pull=never -it \
