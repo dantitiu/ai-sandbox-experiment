@@ -10,14 +10,23 @@ Experiment with setting up and running a sandbox environment to run AI agents.
 4. Run `claude` or `clauded` (dangerously skips permissions) and follow the instructions.
 
 ### Updating the image:
-The container is kept between runs and stays pinned to the image it was created from, so rebuilding the image doesn't change an existing container.
-After running `build-sandbox.sh` again, `run-sandbox.sh` detects the newer image and offers to recreate the container (or run `run-sandbox.sh --recreate` to skip the prompt).
+The container is kept between runs and stays pinned to the image and mounts it was created from, so rebuilding the image or adding a bridge repo doesn't change an existing container.
+After running `build-sandbox.sh` again, or when a bridge mount is missing, `run-sandbox.sh` detects it and offers to recreate the container (or run `run-sandbox.sh --recreate` to skip the prompt).
 Anything stored only inside the container, such as the Claude Code login, is lost and must be set up again.
 Once no container uses the old image, remove it with `podman image prune`.
 
 ### Sharing code with the Sandbox:
-1. From your host working repository add the git remote for the sandbox bridge:
-   - run in Terminal: `git remote add sandbox ${SANDBOX_FOLDER}/kit-bridge.git`
+Each project has its own bare "bridge" repo in `${SANDBOX_FOLDER}` and a matching folder in the container's workspace:
+
+| Project | Bridge on host | Mounted in container | Workspace folder |
+|---------|----------------|----------------------|------------------|
+| Kit     | `kit-bridge.git` | `/kit-bridge.git` | `/workspace/kit` |
+| TTS     | `tts-bridge.git` | `/tts-bridge.git` | `/workspace/tts` |
+
+In each workspace folder the bridge is already set up as the `origin` remote.
+
+1. From your host working repository add the git remote for the matching sandbox bridge:
+   - run in Terminal: `git remote add sandbox ${SANDBOX_FOLDER}/kit-bridge.git` # or tts-bridge.git
 2. Push the branch you want the agent to run on:
    - run in Terminal, e.g. `git push sandbox develop` # change develop to your desired branch name
 3. From the VM / Container terminal, in the workspace folder of your choice, fetch and checkout the working branch: 

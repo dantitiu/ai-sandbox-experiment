@@ -11,9 +11,10 @@ SANDBOX="${SANDBOX:-${HOME}/Projects/AI/sandbox}"
 # Host-shared workspace (changes show up on macOS immediately).
 WORKSPACE="${WORKSPACE:-${SANDBOX}/workspace}"
 
-# Optional: a host-shared bare repo that acts as a "bridge remote" between macOS and the sandbox.
-# On macOS you can add it as a remote too:  git remote add sandbox "${KIT_BRIDGE}"
+# Optional: host-shared bare repos that act as "bridge remotes" between macOS and the sandbox,
+# one per project. On macOS you can add them as remotes too:  git remote add sandbox "${KIT_BRIDGE}"
 KIT_BRIDGE="${KIT_BRIDGE:-${SANDBOX}/kit-bridge.git}"
+TTS_BRIDGE="${TTS_BRIDGE:-${SANDBOX}/tts-bridge.git}"
 
 # Private sandbox Gradle home — holds daemon sockets, lock files, configuration-cache,
 # toolchain metadata, and anything else that is OS/ABI-specific. Keeping this
@@ -23,17 +24,19 @@ GRADLE_CACHE="${GRADLE_CACHE:-${SANDBOX}/gradle-cache}"
 
 # NOTE: On macOS, Podman (via the VM shared filesystem) may not allow Podman to chown()
 # bind-mounted paths. Therefore we DO NOT use the ":U" mount option here.
-# Also ensure WORKSPACE/KIT_BRIDGE live under $HOME (typically /Users/<you>/...) so the
+# Also ensure WORKSPACE and the bridges live under $HOME (typically /Users/<you>/...) so the
 # Podman machine can share them. Using paths like /Projects/... may fail.
 
 mkdir -p "${WORKSPACE}"
-mkdir -p "${KIT_BRIDGE}"
 mkdir -p "${GRADLE_CACHE}"
 
-# Initialize the bare repo once (safe if it already exists).
-if [[ ! -d "${KIT_BRIDGE}/objects" ]]; then
-  git init --bare "${KIT_BRIDGE}" >/dev/null
-fi
+# Initialize the bare repos once (safe if they already exist).
+for BRIDGE in "${KIT_BRIDGE}" "${TTS_BRIDGE}"; do
+  mkdir -p "${BRIDGE}"
+  if [[ ! -d "${BRIDGE}/objects" ]]; then
+    git init --bare "${BRIDGE}" >/dev/null
+  fi
+done
 
 # RAM to allocate to the Podman VM. The container's --memory flag is a ceiling
 # *within* the VM — if the VM itself is smaller, that ceiling is what you actually get.
@@ -65,9 +68,9 @@ else
   fi
 fi
 
-# A container is pinned to the image ID it was created from, so rebuilding (or retagging)
-# "${IMAGE_NAME}" does not affect an existing container. Detect that and offer to recreate it.
-# Pass --recreate to skip the prompt. NOTE: state stored only inside the container
+# A container is pinned to the image ID and mounts it was created from, so rebuilding (or
+# retagging) "${IMAGE_NAME}" or adding a mount below does not affect an existing container.
+# Detect that and offer to recreate it. Pass --recreate to skip the prompt. NOTE: state stored only inside the container
 # (e.g. the Claude Code login in ~/.claude) is lost when it is recreated.
 RECREATE=false
 [[ "${1:-}" == "--recreate" ]] && RECREATE=true
@@ -75,10 +78,18 @@ RECREATE=false
 if podman container exists "${CONTAINER_NAME}"; then
   CONTAINER_IMAGE_ID="$(podman container inspect --format '{{.Image}}' "${CONTAINER_NAME}")"
   LATEST_IMAGE_ID="$(podman image inspect --format '{{.Id}}' "${IMAGE_NAME}" 2>/dev/null || true)"
+  CONTAINER_MOUNTS=" $(podman container inspect --format '{{range .Mounts}}{{.Destination}} {{end}}' "${CONTAINER_NAME}") "
 
-  if [[ -n "${LATEST_IMAGE_ID}" && "${CONTAINER_IMAGE_ID}" != "${LATEST_IMAGE_ID}" && "${RECREATE}" == false ]]; then
-    echo "Container '${CONTAINER_NAME}' uses image ${CONTAINER_IMAGE_ID:0:12}, but '${IMAGE_NAME}' is now ${LATEST_IMAGE_ID:0:12}."
-    print -n "Recreate the container from the new image? Container-only state will be lost. [y/N] "
+  OUTDATED=""
+  if [[ -n "${LATEST_IMAGE_ID}" && "${CONTAINER_IMAGE_ID}" != "${LATEST_IMAGE_ID}" ]]; then
+    OUTDATED="it uses image ${CONTAINER_IMAGE_ID:0:12}, but '${IMAGE_NAME}' is now ${LATEST_IMAGE_ID:0:12}"
+  elif [[ "${CONTAINER_MOUNTS}" != *" /tts-bridge.git "* ]]; then
+    OUTDATED="it has no /tts-bridge.git mount"
+  fi
+
+  if [[ -n "${OUTDATED}" && "${RECREATE}" == false ]]; then
+    echo "Container '${CONTAINER_NAME}' is outdated: ${OUTDATED}."
+    print -n "Recreate the container? Container-only state will be lost. [y/N] "
     read -r REPLY || REPLY=""
     [[ "${REPLY}" == [yY]* ]] && RECREATE=true
   fi
@@ -103,10 +114,12 @@ else
     --userns=keep-id \
     -e "SANDBOX_REMOTE_NAME=origin" \
     -e "KIT_REMOTE_URL=/kit-bridge.git" \
+    -e "TTS_REMOTE_URL=/tts-bridge.git" \
     -e "GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-}" \
     -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-}" \
     -v "${WORKSPACE}:/workspace:rw" \
     -v "${KIT_BRIDGE}:/kit-bridge.git:rw" \
+    -v "${TTS_BRIDGE}:/tts-bridge.git:rw" \
     -v "${GRADLE_CACHE}:/opt/gradle-cache:rw" \
     -w /workspace \
     "${IMAGE_NAME}"
