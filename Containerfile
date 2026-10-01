@@ -120,11 +120,12 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["zsh", "-l"]
 
 # ---- Claude Code (native installer) ----
+# Put the install location on PATH *before* installing: the installer checks PATH and warns
+# that ~/.local/bin is missing otherwise. ENV covers non-login execs, .zshrc covers login shells.
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 ARG CLAUDE_CODE_CHANNEL=latest
 RUN curl -fsSL https://claude.ai/install.sh | bash -s ${CLAUDE_CODE_CHANNEL}
 
-# Make sure the installed CLI is on PATH for login shells and non-login execs.
-ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 RUN echo 'export PATH="${HOME}/.local/bin:${PATH}"' >> /home/${USERNAME}/.zshrc
 RUN echo 'export ANDROID_HOME=/opt/android-sdk'    >> /home/${USERNAME}/.zshrc
 RUN echo 'export ANDROID_SDK_ROOT=/opt/android-sdk' >> /home/${USERNAME}/.zshrc
