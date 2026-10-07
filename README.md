@@ -22,11 +22,12 @@ Each project has its own bare "bridge" repo in `${SANDBOX_FOLDER}` and a matchin
 |---------|----------------|----------------------|------------------|
 | Kit     | `kit-bridge.git` | `/kit-bridge.git` | `/workspace/kit` |
 | TTS     | `tts-bridge.git` | `/tts-bridge.git` | `/workspace/tts` |
+| Vision  | `vision-bridge.git` | `/vision-bridge.git` | `/workspace/vision` |
 
 In each workspace folder the bridge is already set up as the `origin` remote.
 
 1. From your host working repository add the git remote for the matching sandbox bridge:
-   - run in Terminal: `git remote add sandbox ${SANDBOX_FOLDER}/kit-bridge.git` # or tts-bridge.git
+   - run in Terminal: `git remote add sandbox ${SANDBOX_FOLDER}/kit-bridge.git` # or tts-bridge.git / vision-bridge.git
 2. Push the branch you want the agent to run on:
    - run in Terminal, e.g. `git push sandbox develop` # change develop to your desired branch name
 3. From the VM / Container terminal, in the workspace folder of your choice, fetch and checkout the working branch: 

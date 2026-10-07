@@ -37,5 +37,6 @@ setup_repo() {
 
 setup_repo "${KIT_WORKSPACE:-/workspace/kit}" "${KIT_REMOTE_URL:-}"
 setup_repo "${TTS_WORKSPACE:-/workspace/tts}" "${TTS_REMOTE_URL:-}"
+setup_repo "${VISION_WORKSPACE:-/workspace/vision}" "${VISION_REMOTE_URL:-}"
 
 exec "$@"
